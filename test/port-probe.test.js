@@ -63,8 +63,31 @@ test('decidePort: 被占但不可达 → 重试后换空闲端口', async () => 
   const blocker = net.createServer();
   await new Promise((r) => blocker.listen(0, '127.0.0.1', r));
   const port = blocker.address().port;
-  const d = await decidePort(port);
-  assert.strictEqual(d.mode, 'start');
-  assert.notStrictEqual(d.port, port);
-  blocker.close();
+  try {
+    const d = await decidePort(port);
+    assert.strictEqual(d.mode, 'start');
+    assert.notStrictEqual(d.port, port);
+  } finally {
+    blocker.close();
+  }
+});
+
+test('decidePort: 重试窗口内服务恢复 → connect 模式', async () => {
+  const blocker = net.createServer();
+  await new Promise((r) => blocker.listen(0, '127.0.0.1', r));
+  const port = blocker.address().port;
+  const promise = decidePort(port);
+  // 1.5 秒后在占用的端口上启动 HTTP 服务
+  const httpSrv = http.createServer((req, res) => { res.writeHead(200); res.end('ok'); });
+  setTimeout(() => {
+    blocker.close();
+    httpSrv.listen(port, '127.0.0.1');
+  }, 1500);
+  try {
+    const d = await promise;
+    assert.strictEqual(d.mode, 'connect');
+    assert.strictEqual(d.port, port);
+  } finally {
+    httpSrv.close();
+  }
 });

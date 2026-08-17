@@ -25,12 +25,21 @@ function tcpReachable(port, timeoutMs = 1000) {
 
 function findFreePort(startPort) {
   return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, '127.0.0.1', () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-    srv.on('error', reject);
+    const tryListen = (port) => {
+      const srv = net.createServer();
+      srv.once('error', (err) => {
+        if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+          tryListen(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+      srv.listen(port, '127.0.0.1', () => {
+        const p = srv.address().port;
+        srv.close(() => resolve(p));
+      });
+    };
+    tryListen(startPort);
   });
 }
 
