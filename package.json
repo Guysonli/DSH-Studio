@@ -1,0 +1,17 @@
+{
+  "name": "dsh-desktop",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness Desktop — 桌面版外壳",
+  "main": "main/main.js",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/",
+    "bundle:dsh": "node scripts/prepare-bundle.js",
+    "start": "electron .",
+    "dist": "npm run bundle:dsh && electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3"
+  }
+}
