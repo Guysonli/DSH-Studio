@@ -23,6 +23,10 @@ function spawnDsh({ entry, port, dshHome, projectRoot, execPath }) {
     windowsHide: true,
   });
   child.on('exit', () => { try { fs.closeSync(out); } catch {} });
+  child.on('error', (err) => {
+    try { fs.closeSync(out); } catch {}
+    child.emit('spawn-error', err); // 通知上层；无监听时静默
+  });
   return child;
 }
 
@@ -30,7 +34,11 @@ function waitReady(port, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve) => {
     const tick = async () => {
-      if (await probePort(port, 1000)) return resolve(true);
+      try {
+        if (await probePort(port, 1000)) return resolve(true);
+      } catch {
+        // 探测异常按未就绪处理
+      }
       if (Date.now() > deadline) return resolve(false);
       setTimeout(tick, 500);
     };

@@ -51,7 +51,7 @@ test('killTree 终止子进程', async () => {
     projectRoot: process.cwd(),
     execPath: process.execPath,
   });
-  await waitReady(port, 10000);
+  assert.strictEqual(await waitReady(port, 10000), true);
   await killTree(child);
   await new Promise((r) => setTimeout(r, 500));
   assert.strictEqual(await probePort(port, 500), false);
