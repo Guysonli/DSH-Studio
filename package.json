@@ -5,7 +5,7 @@
   "main": "main/main.js",
   "private": true,
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test",
     "bundle:dsh": "node scripts/prepare-bundle.js",
     "start": "electron .",
     "dist": "npm run bundle:dsh && electron-builder --win"
