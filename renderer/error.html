@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+  <title>启动失败</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="card">
+    <h1>启动失败</h1>
+    <p class="stage" id="msg"></p>
+    <p class="err" id="detail"></p>
+    <button id="retry">重试</button>
+  </div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    document.getElementById('msg').textContent = q.get('m') || '未知错误';
+    document.getElementById('detail').textContent = q.get('d') || '';
+    document.getElementById('retry').onclick = () => window.dshDesktop.retry();
+  </script>
+</body>
+</html>

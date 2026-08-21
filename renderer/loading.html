@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+  <title>正在启动 DeepSeek Harness</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="card">
+    <h1>DeepSeek Harness Desktop</h1>
+    <div class="spinner"></div>
+    <p class="stage" id="stage">正在初始化…</p>
+    <p class="mono" id="version"></p>
+  </div>
+  <script>
+    window.dshDesktop.getVersionInfo().then((v) => {
+      document.getElementById('version').textContent = 'dsh ' + v.dshVersion + ' · 应用 ' + v.appVersion;
+    });
+    window.dshDesktop.onStage(({ stage, detail }) => {
+      document.getElementById('stage').textContent = detail || stage;
+    });
+    window.dshDesktop.onFatal(({ message, detail }) => {
+      location.href = 'error.html?m=' + encodeURIComponent(message) + '&d=' + encodeURIComponent(detail || '');
+    });
+  </script>
+</body>
+</html>

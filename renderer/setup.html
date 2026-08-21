@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+  <title>配置 DeepSeek API Key</title>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+  <div class="card">
+    <h1>首次使用配置</h1>
+    <p class="stage">请输入你的 DeepSeek API Key（仅保存在本机 ~/.dsh/.credentials.yaml，与官方 CLI 共用）</p>
+    <input type="password" id="key" placeholder="sk-..." autofocus>
+    <button id="save">保存并启动</button>
+    <p class="err" id="err"></p>
+  </div>
+  <script>
+    const input = document.getElementById('key');
+    const btn = document.getElementById('save');
+    const err = document.getElementById('err');
+    btn.onclick = async () => {
+      const key = input.value.trim();
+      if (!key) { err.textContent = '请输入 API Key'; return; }
+      err.textContent = '';
+      try {
+        await window.dshDesktop.submitApiKey(key);
+        location.href = 'loading.html';
+      } catch (e) {
+        err.textContent = '保存失败：' + e.message;
+      }
+    };
+    input.onkeydown = (e) => { if (e.key === 'Enter') btn.onclick(); };
+  </script>
+</body>
+</html>
