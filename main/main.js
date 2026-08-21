@@ -17,7 +17,6 @@ let mainWindow = null;
 let serverChild = null;
 let currentPort = 3080;
 let booting = false;
-let lastDshEntry = null;
 
 function entryFor(projectRoot) {
   // 打包后基线位于 resources/dsh；开发模式位于项目 node_modules
@@ -62,19 +61,41 @@ async function startDsh(projectRoot, { forcePort } = {}) {
   }
 
   stage('vendor', '解析 dsh 版本…');
-  lastDshEntry = entryFor(projectRoot);
-  stage('start', `启动 dsh 服务 (端口 ${currentPort})…`);
-  serverChild = spawnDsh({
-    entry: lastDshEntry, port: currentPort, dshHome,
-    projectRoot, execPath: process.execPath,
-  });
-  serverChild.on('exit', (code) => {
-    if (booting || !mainWindow || mainWindow.isDestroyed()) return;
-    fatal('dsh 服务已退出', `退出码 ${code}，请点击重试`);
-  });
-  const ready = await waitReady(currentPort, 30000);
-  if (!ready) {
-    fatal('服务启动超时', '30 秒内未就绪，请点击重试');
+  const tryEntry = async (entry) => {
+    serverChild = spawnDsh({
+      entry, port: currentPort, dshHome,
+      projectRoot, execPath: process.execPath,
+    });
+    const ready = await waitReady(currentPort, 20000);
+    if (ready) {
+      serverChild.on('exit', (code) => {
+        if (booting || !mainWindow || mainWindow.isDestroyed()) return;
+        fatal('dsh 服务已退出', `退出码 ${code}，请点击重试`);
+      });
+      return true;
+    }
+    await killTree(serverChild);
+    serverChild = null;
+    return false;
+  };
+
+  const vendorEntry = paths.vendorDshEntry();
+  const baselineEntry = entryFor(projectRoot);
+  const useVendor = vendorEntry && fs.existsSync(vendorEntry) && fs.existsSync(path.join(paths.vendorDir(), 'node_modules'));
+  let ok = false;
+  if (useVendor) {
+    stage('start', `启动 dsh (vendor, 端口 ${currentPort})…`);
+    ok = await tryEntry(vendorEntry);
+    if (!ok) {
+      stage('start', 'vendor 版本启动失败，回退基线…');
+      ok = await tryEntry(baselineEntry);
+    }
+  } else {
+    stage('start', `启动 dsh (基线, 端口 ${currentPort})…`);
+    ok = await tryEntry(baselineEntry);
+  }
+  if (!ok) {
+    fatal('服务启动失败', '请查看日志后重试');
     return;
   }
   await loadGui(currentPort);
