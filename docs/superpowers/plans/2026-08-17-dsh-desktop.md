@@ -39,7 +39,7 @@
 
 ```json
 {
-  "name": "dsh-desktop",
+  "name": "dsh-studio",
   "version": "0.1.0",
   "description": "DeepSeek Harness Desktop — 桌面版外壳",
   "main": "main/main.js",
@@ -410,7 +410,7 @@ const { spawnDsh, waitReady, killTree } = require('../main/server-manager');
 const { probePort } = require('../main/port-probe');
 
 // 用 node 起一个最小 HTTP 服务脚本充当"dsh"
-const FAKE_DSH = path.join(os.tmpdir(), 'dsh-desktop-test-fake-server.js');
+const FAKE_DSH = path.join(os.tmpdir(), 'dsh-studio-test-fake-server.js');
 fs.writeFileSync(FAKE_DSH, `
 const http = require('node:http');
 http.createServer((req, res) => { res.writeHead(200); res.end('ok'); })

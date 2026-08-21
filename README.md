@@ -1,4 +1,4 @@
-# DeepSeek Harness Desktop
+# DSH Studio
 
 DeepSeek Harness (dsh) 的原生桌面版外壳 —— 内嵌 GUI、自动管理服务进程、首次运行密钥向导、dsh 自动升级、NSIS 安装包分发。
 
@@ -37,7 +37,7 @@ npm run bundle:dsh
 npm run dist
 ```
 
-生成 `dist/DeepSeek Harness Desktop Setup 0.1.0.exe`。
+生成 `dist/DSH Studio Setup 0.1.0.exe`。
 
 ## 项目结构
 

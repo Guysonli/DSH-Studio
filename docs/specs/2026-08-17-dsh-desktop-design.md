@@ -116,11 +116,11 @@ DeepSeek Harness（dsh）官方形态是命令行启动的本地 Web 服务（`d
 ## 6. 打包与分发
 
 - 工具：electron-builder + NSIS
-- 应用名：**DeepSeek Harness Desktop**
+- 应用名：**DSH Studio**
 - 安装包体积：约 100~150MB（含 Chromium 与 dsh 依赖）
 - 目标平台：Windows x64（开发机同架构）
 - 捆绑内容：Electron 运行时、应用外壳、`@deepseek-ai/dsh` 及其依赖（含原生模块 node-pty/sharp 等，按 win-x64 重编译）、profile 骨架模板（extraResources）
-- 安装位置：`%LOCALAPPDATA%\Programs\dsh-desktop`（默认）
+- 安装位置：`%LOCALAPPDATA%\Programs\dsh-studio`（默认）
 - 卸载：NSIS 标准卸载，不清除 `~/.dsh`
 
 ## 7. 错误处理矩阵

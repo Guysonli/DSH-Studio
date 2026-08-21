@@ -10,7 +10,7 @@ const { spawnDsh, waitReady, killTree } = require('../main/server-manager');
 const { probePort } = require('../main/port-probe');
 
 // 用 node 起一个最小 HTTP 服务脚本充当"dsh"
-const FAKE_DSH = path.join(os.tmpdir(), 'dsh-desktop-test-fake-server.js');
+const FAKE_DSH = path.join(os.tmpdir(), 'dsh-studio-test-fake-server.js');
 // spawnDsh 以 `entry --profile web --port <port>` 方式调用，端口在 argv 的 --port 之后
 fs.writeFileSync(FAKE_DSH, `
 const http = require('node:http');
