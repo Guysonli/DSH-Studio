@@ -52,3 +52,13 @@ test('readApiKey 忽略键名前后空白', async () => {
   fs.writeFileSync(path.join(home, '.credentials.yaml'), '  DEEPSEEK_API_KEY:  sk-xyz  \n');
   assert.strictEqual(await readApiKey(home), 'sk-xyz');
 });
+
+test('ensureDshInstalled 在 dsh 已安装时跳过', async () => {
+  const { ensureDshInstalled } = require('../main/bootstrap');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-ensure-'));
+  const vendorDir = path.join(tmp, 'vendor', 'dsh');
+  fs.mkdirSync(path.join(vendorDir, 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(vendorDir, 'lib', 'bin.js'), '');
+  await ensureDshInstalled(tmp);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});

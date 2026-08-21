@@ -58,4 +58,20 @@ async function writeApiKey(dshHome, key) {
   fs.writeFileSync(path.join(dshHome, '.credentials.yaml'), `DEEPSEEK_API_KEY: ${key}\n`, 'utf8');
 }
 
-module.exports = { PROFILE_TEMPLATES, ensureProfile, readApiKey, writeApiKey };
+async function ensureDshInstalled(dshHome) {
+  const vendorDir = path.join(dshHome, 'vendor', 'dsh');
+  const entry = path.join(vendorDir, 'lib', 'bin.js');
+  if (fs.existsSync(entry)) return;
+
+  console.log('[dsh-studio] dsh 未安装，正在自动下载…');
+  const { performUpdate } = require('./update-manager');
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  await performUpdate('0.1.0-rc.6', {
+    vendorDir,
+    npmCliPath: npmCli,
+    execPath: process.execPath,
+  });
+  console.log('[dsh-studio] dsh 下载完成');
+}
+
+module.exports = { PROFILE_TEMPLATES, ensureProfile, readApiKey, writeApiKey, ensureDshInstalled };

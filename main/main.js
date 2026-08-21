@@ -168,7 +168,7 @@ if (!gotLock) {
     if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     createWindow();
     ipcMain.handle('setup:submit', async (_e, key) => {
       await writeApiKey(paths.dshHome(), key);
@@ -179,6 +179,8 @@ if (!gotLock) {
       appVersion: app.getVersion(),
     }));
     ipcMain.handle('app:retry', () => boot());
+    const { ensureDshInstalled } = require('./bootstrap');
+    await ensureDshInstalled(paths.dshHome());
     boot();
   });
 
