@@ -1,5 +1,5 @@
-appId: com.dshdesktop.app
-productName: DeepSeek Harness Desktop
+appId: com.dshstudio.app
+productName: DSH Studio
 directories:
   output: dist
 files:
@@ -17,5 +17,5 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  shortcutName: DeepSeek Harness Desktop
+  shortcutName: DSH Studio
   deleteAppDataOnUninstall: false

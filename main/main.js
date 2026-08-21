@@ -105,7 +105,7 @@ async function loadGui(port) {
   stage('gui', '加载界面…');
   const win = mainWindow;
   await win.loadURL(`http://127.0.0.1:${port}/`);
-  win.setTitle(`DeepSeek Harness Desktop — 端口 ${port}`);
+  win.setTitle(`DSH Studio — 端口 ${port}`);
 }
 
 function loadSetupPage() {

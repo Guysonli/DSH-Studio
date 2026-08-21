@@ -1,7 +1,7 @@
 {
-  "name": "dsh-desktop",
+  "name": "dsh-studio",
   "version": "0.1.0",
-  "description": "DeepSeek Harness Desktop — 桌面版外壳",
+  "description": "DSH Studio — DeepSeek Harness 桌面版外壳",
   "main": "main/main.js",
   "private": true,
   "scripts": {
