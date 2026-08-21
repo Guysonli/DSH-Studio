@@ -1,0 +1,21 @@
+appId: com.dshdesktop.app
+productName: DeepSeek Harness Desktop
+directories:
+  output: dist
+files:
+  - main/**
+  - renderer/**
+  - package.json
+extraResources:
+  - from: vendor-src/dsh
+    to: dsh
+  - from: vendor-src/tools
+    to: tools
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: DeepSeek Harness Desktop
+  deleteAppDataOnUninstall: false
