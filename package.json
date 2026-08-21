@@ -8,7 +8,8 @@
     "test": "node --test",
     "bundle:dsh": "node scripts/prepare-bundle.js",
     "start": "electron .",
-    "dist": "npm run bundle:dsh && electron-builder --win"
+    "dist": "electron-builder --win",
+    "dist:full": "npm run bundle:dsh && electron-builder --win"
   },
   "devDependencies": {
     "electron": "^43.4.0",

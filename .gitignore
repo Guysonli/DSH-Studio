@@ -14,3 +14,11 @@ Thumbs.db
 
 # Build
 *.exe
+
+# 开发文档（不入库）
+.superpowers/
+
+# 临时捆绑文件
+vendor-src/dsh/package.json
+vendor-src/dsh/lib/
+vendor-src/dsh/config/
