@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const { spawn } = require('node:child_process');
 
 const npmRegistryUrl = 'https://registry.npmjs.org';
 
@@ -98,7 +99,35 @@ function extractTarball(tgzFile, targetDir) {
   });
 }
 
+function installVendorDeps(vendorDir, npmCliPath, execPath) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(execPath, [
+      npmCliPath, 'install', '--omit=dev', '--no-audit', '--no-fund', '--prefix', vendorDir,
+    ], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let err = '';
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`依赖安装失败 (${code}): ${err.slice(-500)}`));
+    });
+    child.on('error', reject);
+  });
+}
+
+async function performUpdate(version, { vendorDir, npmCliPath, execPath }) {
+  const tgz = path.join(path.dirname(vendorDir), `dsh-${version}.tgz`);
+  await downloadTarball(version, tgz);
+  await extractTarball(tgz, vendorDir);
+  await installVendorDeps(vendorDir, npmCliPath, execPath);
+  return true;
+}
+
 module.exports = {
   npmRegistryUrl, parseVersion, isNewer, getLatestVersion,
   resolveDshEntry, downloadTarball, extractTarball,
+  installVendorDeps, performUpdate,
 };

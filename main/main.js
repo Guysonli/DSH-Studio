@@ -8,7 +8,7 @@ const { decidePort } = require('./port-probe');
 const { spawnDsh, waitReady, killTree } = require('./server-manager');
 const { ensureProfile, readApiKey, writeApiKey } = require('./bootstrap');
 const {
-  getLatestVersion, isNewer, resolveDshEntry, downloadTarball, extractTarball,
+  getLatestVersion, isNewer, resolveDshEntry, performUpdate,
 } = require('./update-manager');
 
 const DSH_VERSION = '0.1.0-rc.6'; // 捆绑基线版本，与 vendor-src 一致
@@ -113,9 +113,10 @@ async function checkForUpdates() {
     if (!isNewer(remote, DSH_VERSION)) return;
     stage('update', `发现新版本 dsh ${remote}，后台更新中…`);
     const vendorRoot = paths.vendorDir();
-    const tgz = path.join(paths.dshHome(), 'vendor', `dsh-${remote}.tgz`);
-    await downloadTarball(remote, tgz);
-    await extractTarball(tgz, vendorRoot);
+    const npmCli = app.isPackaged
+      ? path.join(process.resourcesPath, 'tools', 'node_modules', 'npm', 'bin', 'npm-cli.js')
+      : path.join(__dirname, '..', 'vendor-src', 'tools', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    await performUpdate(remote, { vendorDir: vendorRoot, npmCliPath: npmCli, execPath: process.execPath });
     stage('update', `dsh ${remote} 已就绪，下次启动生效`);
   } catch {
     // 静默失败，继续用现有版本

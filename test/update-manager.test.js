@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const {
-  parseVersion, isNewer, resolveDshEntry, extractTarball,
+  parseVersion, isNewer, resolveDshEntry, extractTarball, installVendorDeps,
 } = require('../main/update-manager');
 
 test('parseVersion 解析 rc 版本', () => {
@@ -63,4 +63,12 @@ test('extractTarball 解出 package/ 下文件', async () => {
     fs.rmSync(tgz, { force: true });
     fs.rmSync(target, { recursive: true, force: true });
   }
+});
+
+test('installVendorDeps 调用 npm-cli 安装', async () => {
+  const vendor = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-vendor-'));
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (!fs.existsSync(npmCli)) return; // 系统 node 无捆绑 npm 时跳过
+  await installVendorDeps(vendor, npmCli, process.execPath);
+  assert.ok(fs.existsSync(path.join(vendor, 'node_modules')));
 });
