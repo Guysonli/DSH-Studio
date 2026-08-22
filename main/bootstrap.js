@@ -64,14 +64,23 @@ async function ensureDshInstalled(dshHome) {
   if (fs.existsSync(entry)) return;
 
   console.log('[dsh-studio] dsh 未安装，正在自动下载…');
-  const { performUpdate } = require('./update-manager');
-  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
-  await performUpdate('0.1.0-rc.6', {
-    vendorDir,
-    npmCliPath: npmCli,
-    execPath: process.execPath,
-  });
-  console.log('[dsh-studio] dsh 下载完成');
+  try {
+    const { performUpdate } = require('./update-manager');
+    const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    // 60 秒超时，防止网络卡死
+    await Promise.race([
+      performUpdate('0.1.0-rc.6', {
+        vendorDir,
+        npmCliPath: npmCli,
+        execPath: process.execPath,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('下载超时')), 60000)),
+    ]);
+    console.log('[dsh-studio] dsh 下载完成');
+  } catch (e) {
+    console.error('[dsh-studio] dsh 自动下载失败:', e.message);
+    // 下载失败不阻塞启动，后续会用 baseline 或报错
+  }
 }
 
 module.exports = { PROFILE_TEMPLATES, ensureProfile, readApiKey, writeApiKey, ensureDshInstalled };
