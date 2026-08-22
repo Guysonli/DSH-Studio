@@ -25,7 +25,7 @@ const SETTINGS_FILE = path.join(paths.dshHome(), 'dsh-studio-settings.json');
 
 function loadSettings() {
   try { return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')); }
-  catch { return { closeAction: 'ask' }; }
+  catch { return { closeAction: 'ask', windowBounds: null }; }
 }
 
 function saveSettings(settings) {
@@ -194,8 +194,12 @@ async function checkForUpdates() {
 }
 
 function createWindow() {
+  const settings = loadSettings();
+  const bounds = settings.windowBounds || { width: 1280, height: 800 };
+
   mainWindow = new BrowserWindow({
-    width: 1280, height: 800,
+    x: bounds.x, y: bounds.y,
+    width: bounds.width || 1280, height: bounds.height || 800,
     minWidth: 800, minHeight: 600,
     resizable: true,
     webPreferences: {
@@ -204,6 +208,21 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // 记住窗口大小和位置
+  let resizeTimer;
+  const saveBounds = () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const s = loadSettings();
+        s.windowBounds = mainWindow.getBounds();
+        saveSettings(s);
+      }
+    }, 500);
+  };
+  mainWindow.on('resize', saveBounds);
+  mainWindow.on('move', saveBounds);
 
   const menuTemplate = [
     {

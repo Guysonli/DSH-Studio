@@ -1,7 +1,7 @@
 node_modules/
 dist/
-vendor-src/dsh/node_modules/
-vendor-src/tools/node_modules/
+vendor-src/dsh/
+vendor-src/tools/
 *.log
 
 # OS
@@ -17,8 +17,3 @@ Thumbs.db
 
 # 开发文档（不入库）
 .superpowers/
-
-# 临时捆绑文件
-vendor-src/dsh/package.json
-vendor-src/dsh/lib/
-vendor-src/dsh/config/
