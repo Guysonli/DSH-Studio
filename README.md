@@ -2,7 +2,7 @@
 
 DeepSeek Harness (dsh) 的原生桌面版外壳 —— 内嵌 GUI、自动管理服务进程、首次运行密钥向导、dsh 自动升级、NSIS 安装包分发。
 
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-GPL%20v3-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
 
 ## 功能
@@ -93,4 +93,4 @@ npm run dist
 
 ## 许可
 
-[MIT License](LICENSE)
+[GNU General Public License v3.0](LICENSE)
