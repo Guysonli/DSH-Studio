@@ -58,7 +58,24 @@ test('ensureDshInstalled 在 dsh 已安装时跳过', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-ensure-'));
   const vendorDir = path.join(tmp, 'vendor', 'dsh');
   fs.mkdirSync(path.join(vendorDir, 'lib'), { recursive: true });
+  fs.mkdirSync(path.join(vendorDir, 'node_modules'), { recursive: true });
   fs.writeFileSync(path.join(vendorDir, 'lib', 'bin.js'), '');
   await ensureDshInstalled(tmp);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('ensureDshInstalled 有 bin.js 无 node_modules 时链接 profiles', async () => {
+  const { ensureDshInstalled } = require('../main/bootstrap');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-link-'));
+  const vendorDir = path.join(tmp, 'vendor', 'dsh');
+  fs.mkdirSync(path.join(vendorDir, 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(vendorDir, 'lib', 'bin.js'), '');
+  // 创建 profiles/node_modules 供链接
+  const profilesModules = path.join(tmp, 'profiles', 'node_modules');
+  fs.mkdirSync(profilesModules, { recursive: true });
+  fs.writeFileSync(path.join(profilesModules, 'test.txt'), 'ok');
+  await ensureDshInstalled(tmp);
+  // 验证链接已创建
+  assert.ok(fs.existsSync(path.join(vendorDir, 'node_modules', 'test.txt')));
   fs.rmSync(tmp, { recursive: true, force: true });
 });

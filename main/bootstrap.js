@@ -61,13 +61,31 @@ async function writeApiKey(dshHome, key) {
 async function ensureDshInstalled(dshHome) {
   const vendorDir = path.join(dshHome, 'vendor', 'dsh');
   const entry = path.join(vendorDir, 'lib', 'bin.js');
-  if (fs.existsSync(entry)) return;
+  const vendorModules = path.join(vendorDir, 'node_modules');
 
+  // 情况 1：完整安装（有 lib/bin.js + node_modules），直接用
+  if (fs.existsSync(entry) && fs.existsSync(vendorModules)) return;
+
+  // 情况 2：有 lib/bin.js 但缺 node_modules → 尝试链接 profiles/node_modules
+  if (fs.existsSync(entry)) {
+    const profilesModules = path.join(dshHome, 'profiles', 'node_modules');
+    if (fs.existsSync(profilesModules)) {
+      console.log('[dsh-studio] dsh 核心已存在，链接依赖…');
+      try {
+        fs.symlinkSync(profilesModules, vendorModules, 'junction');
+        console.log('[dsh-studio] 依赖链接完成');
+        return;
+      } catch (e) {
+        console.error('[dsh-studio] 链接依赖失败:', e.message);
+      }
+    }
+  }
+
+  // 情况 3：完全没有 → 下载
   console.log('[dsh-studio] dsh 未安装，正在自动下载…');
   try {
     const { performUpdate } = require('./update-manager');
     const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
-    // 60 秒超时，防止网络卡死
     await Promise.race([
       performUpdate('0.1.0-rc.6', {
         vendorDir,
@@ -79,7 +97,6 @@ async function ensureDshInstalled(dshHome) {
     console.log('[dsh-studio] dsh 下载完成');
   } catch (e) {
     console.error('[dsh-studio] dsh 自动下载失败:', e.message);
-    // 下载失败不阻塞启动，后续会用 baseline 或报错
   }
 }
 
