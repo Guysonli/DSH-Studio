@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -17,6 +17,46 @@ let mainWindow = null;
 let serverChild = null;
 let currentPort = 3080;
 let booting = false;
+let tray = null;
+
+// ---- 设置读写 ----
+const SETTINGS_FILE = path.join(paths.dshHome(), 'dsh-studio-settings.json');
+
+function loadSettings() {
+  try { return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')); }
+  catch { return { closeAction: 'ask' }; }
+}
+
+function saveSettings(settings) {
+  fs.mkdirSync(paths.dshHome(), { recursive: true });
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+}
+
+// ---- 系统托盘 ----
+function showTray() {
+  if (tray) return;
+  // 16x16 蓝色圆点图标
+  const icon = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAjklEQVQ4T2NkoBAwUqifgWoGMIIMA' +
+    'xj+//8PM4ERrobYBtA1gGQDSPUCYg3g4eFhYGRkZGRkYmL6z8DA8B+ujtQYINaAfwEMDP8Z/uvrMzAwMD' +
+    'IwMDxnYGD4j2oAXANQXUCsAeQGFPkBxe4h1gDSA8r6gNIA+gDFHkAyoMwFKAXEBiTFAAAhZULgVMaQe' +
+    'AAAAAElFTkSuQmCC'
+  );
+  tray = new Tray(icon);
+  tray.setToolTip('DSH Studio');
+  tray.on('click', () => {
+    if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+  });
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '打开 DSH Studio', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    { type: 'separator' },
+    { label: '退出', click: () => { app.quit(); } },
+  ]));
+}
+
+function removeTray() {
+  if (tray) { tray.destroy(); tray = null; }
+}
 
 function entryFor(projectRoot) {
   // 打包后基线位于 resources/dsh；开发模式位于项目 node_modules
@@ -147,6 +187,8 @@ async function checkForUpdates() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 800,
+    minWidth: 800, minHeight: 600,
+    resizable: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -158,6 +200,15 @@ function createWindow() {
     {
       label: '文件',
       submenu: [
+        {
+          label: '退出方式',
+          submenu: [
+            { label: '每次询问', type: 'radio', checked: loadSettings().closeAction === 'ask', click: () => saveSettings({ closeAction: 'ask' }) },
+            { label: '最小化到托盘', type: 'radio', checked: loadSettings().closeAction === 'tray', click: () => saveSettings({ closeAction: 'tray' }) },
+            { label: '直接退出', type: 'radio', checked: loadSettings().closeAction === 'quit', click: () => saveSettings({ closeAction: 'quit' }) },
+          ],
+        },
+        { type: 'separator' },
         { label: '退出', role: 'quit', accelerator: 'CmdOrCtrl+Q' },
       ],
     },
@@ -198,7 +249,39 @@ function createWindow() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'loading.html'));
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('close', async (e) => {
+    const settings = loadSettings();
+    if (settings.closeAction === 'tray') {
+      e.preventDefault();
+      mainWindow.hide();
+      showTray();
+      return;
+    }
+    if (settings.closeAction === 'quit') return;
+
+    // ask 模式：弹窗询问
+    e.preventDefault();
+    const { response, checkboxChecked } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['最小化到托盘', '退出程序'],
+      defaultId: 0,
+      title: '关闭 DSH Studio',
+      message: '关闭窗口后要怎么做？',
+      detail: '选择"最小化到托盘"可以在后台保持运行',
+      checkboxLabel: '记住我的选择',
+      checkboxChecked: false,
+    });
+    if (checkboxChecked) {
+      saveSettings({ closeAction: response === 1 ? 'quit' : 'tray' });
+    }
+    if (response === 1) {
+      app.quit();
+    } else {
+      mainWindow.hide();
+      showTray();
+    }
+  });
+  mainWindow.on('closed', () => { removeTray(); mainWindow = null; });
   mainWindow.webContents.on('did-fail-load', (_e, code, desc) => {
     fatal('页面加载失败', `${code}: ${desc}`);
   });
@@ -229,6 +312,7 @@ if (!gotLock) {
   });
 
   app.on('before-quit', async (e) => {
+    removeTray();
     if (serverChild) {
       e.preventDefault();
       await killTree(serverChild);
