@@ -19,3 +19,4 @@ nsis:
   allowToChangeInstallationDirectory: true
   shortcutName: DSH Studio
   deleteAppDataOnUninstall: false
+  include: scripts/nsis-install.nsh
