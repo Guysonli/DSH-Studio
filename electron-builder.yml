@@ -15,7 +15,7 @@ win:
   target:
     - nsis
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  oneClick: true
+  allowToChangeInstallationDirectory: false
   shortcutName: DSH Studio
   deleteAppDataOnUninstall: false
