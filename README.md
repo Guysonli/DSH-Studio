@@ -88,7 +88,6 @@ npm run dist
 ## 相关链接
 
 - [设计文档](docs/specs/2026-08-17-dsh-desktop-design.md)
-- [实施计划](docs/superpowers/plans/2026-08-17-dsh-desktop.md)
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 ## 许可
