@@ -1,4 +1,4 @@
-appId: com.dshstudio.app
+appId: com.dshdesktop.app
 productName: DSH Studio
 directories:
   output: dist
@@ -15,7 +15,7 @@ win:
   target:
     - nsis
 nsis:
-  oneClick: true
-  allowToChangeInstallationDirectory: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
   shortcutName: DSH Studio
   deleteAppDataOnUninstall: false

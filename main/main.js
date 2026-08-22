@@ -18,6 +18,7 @@ let serverChild = null;
 let currentPort = 3080;
 let booting = false;
 let tray = null;
+let isQuitting = false;
 
 // ---- 设置读写 ----
 const SETTINGS_FILE = path.join(paths.dshHome(), 'dsh-studio-settings.json');
@@ -35,14 +36,22 @@ function saveSettings(settings) {
 // ---- 系统托盘 ----
 function showTray() {
   if (tray) return;
-  // 16x16 蓝色圆点图标
-  const icon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAjklEQVQ4T2NkoBAwUqifgWoGMIIMA' +
-    'xj+//8PM4ERrobYBtA1gGQDSPUCYg3g4eFhYGRkZGRkYmL6z8DA8B+ujtQYINaAfwEMDP8Z/uvrMzAwMD' +
-    'IwMDxnYGD4j2oAXANQXUCsAeQGFPkBxe4h1gDSA8r6gNIA+gDFHkAyoMwFKAXEBiTFAAAhZULgVMaQe' +
-    'AAAAAElFTkSuQmCC'
-  );
-  tray = new Tray(icon);
+  // 创建 16x16 蓝色方块图标
+  const icon = nativeImage.createEmpty();
+  // 用 createFromBuffer 创建简单图标
+  const size = 16;
+  const buf = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      buf[i] = 66;     // R
+      buf[i + 1] = 133; // G
+      buf[i + 2] = 244; // B
+      buf[i + 3] = 255; // A
+    }
+  }
+  const trayIcon = nativeImage.createFromBuffer(buf, { width: size, height: size });
+  tray = new Tray(trayIcon);
   tray.setToolTip('DSH Studio');
   tray.on('click', () => {
     if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
@@ -250,6 +259,8 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'loading.html'));
   mainWindow.on('close', async (e) => {
+    if (isQuitting) return; // 已确认退出，直接关
+
     const settings = loadSettings();
     if (settings.closeAction === 'tray') {
       e.preventDefault();
@@ -257,7 +268,10 @@ function createWindow() {
       showTray();
       return;
     }
-    if (settings.closeAction === 'quit') return;
+    if (settings.closeAction === 'quit') {
+      isQuitting = true;
+      return;
+    }
 
     // ask 模式：弹窗询问
     e.preventDefault();
@@ -275,6 +289,7 @@ function createWindow() {
       saveSettings({ closeAction: response === 1 ? 'quit' : 'tray' });
     }
     if (response === 1) {
+      isQuitting = true;
       app.quit();
     } else {
       mainWindow.hide();
@@ -312,12 +327,13 @@ if (!gotLock) {
   });
 
   app.on('before-quit', async (e) => {
+    isQuitting = true;
     removeTray();
     if (serverChild) {
       e.preventDefault();
       await killTree(serverChild);
       serverChild = null;
-      app.quit();
+      app.exit(0);
     }
   });
 
