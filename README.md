@@ -17,13 +17,13 @@ DeepSeek Harness (dsh) 的原生桌面版外壳 —— 内嵌 GUI、自动管理
 
 ## 安装
 
-从 [Releases](https://github.com/lgswr/dsh-studio/releases) 下载最新安装包，双击安装。
+从 [Releases](https://github.com/Guysonli/DSH-Studio/releases) 下载最新安装包，双击安装。
 
 ## 开发
 
 ```bash
 # 克隆仓库
-git clone https://github.com/lgswr/dsh-studio.git
+git clone https://github.com/Guysonli/DSH-Studio.git
 cd dsh-studio
 
 # 安装依赖
