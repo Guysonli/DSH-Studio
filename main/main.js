@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const paths = require('./paths');
 const { decidePort, probePort } = require('./port-probe');
 const { spawnDsh, waitReady, killTree } = require('./server-manager');
+const hostLock = require('./host-lock');
 const { ensureProfile, readApiKey, writeApiKey } = require('./bootstrap');
 const {
   getLatestVersion, isNewer, performUpdate,
@@ -22,6 +23,7 @@ let isQuitting = false;
 let chosenEntry = null; // 用户从兜底页选定的 dsh 安装（仅本次启动生效）
 let currentMode = null; // 'connect' 连接现有服务 | 'own' 本机独立实例
 let currentEntry = null; // 本次启动使用的 dsh 安装路径（连接模式为 null）
+let hostLockPid = null; // 单写者锁持有的 dsh 子进程 pid（own 模式且持锁时）
 
 // ---- 设置读写 ----
 const SETTINGS_FILE = path.join(paths.dshHome(), 'dsh-studio-settings.json');
@@ -174,6 +176,76 @@ async function askPortPolicy() {
   return policy;
 }
 
+// ---- 单写者保护（own 模式）：dsh 只有进程内单写者模型，两个宿主进程同写一个会话根
+//      会产生 seq 重复（"corrupt session log: seq gap in committed region"）。
+//      锁文件 ~/.dsh/dsh-host.lock 记录负责写入的 dsh 子进程 pid，见 main/host-lock.js。----
+function releaseHostLock() {
+  if (hostLockPid !== null) {
+    hostLock.release(paths.dshHome(), hostLockPid);
+    hostLockPid = null;
+  }
+}
+
+/** 只读探测：另一活跃宿主是否存在（不动锁文件）。 */
+function hostLockProbe() {
+  const holder = hostLock.readLock(paths.dshHome());
+  if (holder === null || holder.pid === undefined) return null;
+  return hostLock.isAlivePid(holder.pid) ? holder : null;
+}
+
+/**
+ * 处理"已存在另一活跃宿主"的冲突。
+ * @returns 'connect' 复用 3080 现有服务 | 'proceed' 用户坚持启动（不持锁） | 'refuse' 取消
+ */
+async function handleWriterConflict(holder) {
+  const occupied = await probePort(3080, 1500);
+  if (occupied) {
+    stage('connect', `检测到另一 dsh 服务（PID ${holder.pid}）正在运行，复用 3080 端口服务…`);
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '改为连接现有服务',
+      message: '检测到另一个 dsh 实例正在运行',
+      detail: `为避免两个实例同时写入同一份会话数据（会损坏会话日志），` +
+        `Studio 已改为连接现有服务（PID ${holder.pid}${holder.port ? `，端口 ${holder.port}` : ''}）。`,
+    }).catch(() => {});
+    return 'connect';
+  }
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: ['取消启动', '仍然启动（不推荐）'],
+    defaultId: 0,
+    cancelId: 0,
+    title: '检测到另一个 dsh 实例',
+    message: `另一个 dsh 服务正在运行（PID ${holder.pid}${holder.port ? `，端口 ${holder.port}` : ''}），` +
+      '但 3080 端口没有它的服务。',
+    detail: '两个 dsh 实例同时写同一份会话数据会损坏会话日志（seq 重复）。\n' +
+      '建议取消启动：先关闭该实例，或直接在浏览器中使用它。\n' +
+      '若你确认它已经停止（陈旧锁），选择"仍然启动"即可覆盖旧锁。',
+  });
+  return response === 1 ? 'proceed' : 'refuse';
+}
+
+/**
+ * own 模式下 3080 被非本 Studio 的宿主（如 CLI 起的 dsh）占用时：明确提示双实例风险。
+ * @returns 'connect' 连接现有服务 | 'proceed' 仍启动独立实例 | 'refuse' 取消
+ */
+async function confirmOwnConflict() {
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: ['连接现有服务（推荐）', '仍启动独立实例', '取消启动'],
+    defaultId: 0,
+    cancelId: 2,
+    title: '检测到已有 dsh 服务（双实例风险）',
+    message: '端口 3080 已有一个 dsh 服务在运行',
+    detail: '两个实例并存时：会话列表不会实时同步（需切换工作区并刷新），' +
+      '且同一会话并发写入可能损坏会话日志。\n' +
+      '推荐「连接现有服务」——Studio 窗口与浏览器指向同一个实例，数据完全一致。',
+  });
+  if (response === 0) return 'connect';
+  if (response === 2) return 'refuse';
+  return 'proceed';
+}
+
 async function startDsh({ forcePort, chosenEntry } = {}) {
   const dshHome = paths.dshHome();
   // 每次启动重置运行状态（重试/重启后关于窗口与标题反映最新状态）
@@ -205,10 +277,49 @@ async function startDsh({ forcePort, chosenEntry } = {}) {
       await loadGui(currentPort);
       return;
     }
-    // own：继续走 decidePort(allowConnect=false)，换空闲端口启动自己的实例
+    // own：3080 已被非本 Studio 的宿主（如 CLI）占用——明确提示双实例风险
+    const keep = await confirmOwnConflict();
+    if (keep === 'connect') {
+      stage('connect', `发现已有 dsh 服务 (端口 ${defaultPort})，直接连接…`);
+      currentPort = defaultPort;
+      currentMode = 'connect';
+      currentEntry = null;
+      await loadGui(currentPort);
+      return;
+    }
+    if (keep === 'refuse') {
+      fatal('启动已取消',
+        `端口 ${defaultPort} 已有一个 dsh 服务在运行。为避免双实例并存，本次未启动。\n` +
+        '请改用「连接现有服务」，或关闭该实例后重试。');
+      return;
+    }
+    // proceed：用户明确选择独立实例，继续（单写者锁保护随后生效）
   }
   const decision = await decidePort(defaultPort, { allowConnect: false });
   currentPort = decision.port;
+
+  // ---- 单写者保护：own 模式会向 ~/.dsh 写入会话，必须先确认没有其他活跃宿主，
+  //      否则两个宿主进程交错写同一会话会产生 seq 重复，损坏会话日志 ----
+  let ownLocked = true; // false = 用户坚持启动（不持锁，风险自负）
+  const aliveHolder = hostLockProbe();
+  if (aliveHolder !== null) {
+    const conflict = await handleWriterConflict(aliveHolder);
+    if (conflict === 'connect') {
+      currentPort = 3080;
+      currentMode = 'connect';
+      currentEntry = null;
+      await loadGui(currentPort);
+      return;
+    }
+    if (conflict === 'refuse') {
+      stage('fatal', '已取消启动：检测到另一 dsh 实例在运行');
+      fatal('启动已取消',
+        '检测到另一个 dsh 实例正在运行（PID ' + aliveHolder.pid + '）。\n' +
+        '为避免双写损坏会话日志，本次未启动。请关闭该实例后重试，或改用"连接现有服务"模式。');
+      return;
+    }
+    ownLocked = false; // proceed：启动但不持锁
+  }
 
   // ---- 使用哪个 dsh 安装 ----
   stage('vendor', '解析 dsh 安装…');
@@ -245,6 +356,7 @@ async function startDsh({ forcePort, chosenEntry } = {}) {
 
     if (outcome.ok) {
       child.on('exit', (code) => {
+        releaseHostLock(); // 子进程退出即释放单写者锁（若由本进程持有）
         if (booting || !mainWindow || mainWindow.isDestroyed()) return;
         fatal('dsh 服务已退出', `退出码 ${code}\n\n日志尾部：\n${logTail()}`);
       });
@@ -259,19 +371,57 @@ async function startDsh({ forcePort, chosenEntry } = {}) {
     return false;
   };
 
-  let ok = false;
-  for (const entry of entries) {
-    stage('start', `启动 dsh (${entryLabel(entry)}, 端口 ${currentPort})…`);
-    ok = await tryEntry(entry);
-    if (ok) {
-      currentMode = 'own';
-      currentEntry = entry;
-      break;
+  const tryAllEntries = async () => {
+    for (const entry of entries) {
+      stage('start', `启动 dsh (${entryLabel(entry)}, 端口 ${currentPort})…`);
+      const okEntry = await tryEntry(entry);
+      if (okEntry) {
+        currentMode = 'own';
+        currentEntry = entry;
+        return true;
+      }
     }
-  }
+    return false;
+  };
+
+  // ---- 启动 + 获取单写者锁 ----
+  let ok = await tryAllEntries();
   if (!ok) {
     fatal('服务启动失败', '可用的 dsh 安装均未启动成功。请查看日志后重试。\n\n日志尾部：\n' + logTail());
     return;
+  }
+  if (ownLocked) {
+    const locked = hostLock.acquire(dshHome, {
+      pid: serverChild.pid,
+      port: currentPort,
+      entry: currentEntry,
+      app: 'dsh-studio',
+    });
+    if (!locked.ok) {
+      // 探测后仍被抢占（另一宿主恰好同时启动）：放弃本次子进程并重新处理冲突
+      await killTree(serverChild);
+      serverChild = null;
+      const conflict = await handleWriterConflict(locked.holder);
+      if (conflict === 'connect') {
+        currentPort = 3080;
+        currentMode = 'connect';
+        currentEntry = null;
+        await loadGui(currentPort);
+        return;
+      }
+      if (conflict === 'refuse') {
+        stage('fatal', '已取消启动：另一 dsh 实例抢占');
+        fatal('启动已取消', '另一 dsh 实例抢先启动（PID ' + locked.holder.pid + '），为避免双写损坏会话日志，本次未启动。');
+        return;
+      }
+      // proceed：无锁重试一次
+      ok = await tryAllEntries();
+      if (!ok) {
+        fatal('服务启动失败', '可用的 dsh 安装均未启动成功。请查看日志后重试。\n\n日志尾部：\n' + logTail());
+        return;
+      }
+    }
+    hostLockPid = serverChild.pid;
   }
   await loadGui(currentPort);
 }
@@ -546,7 +696,10 @@ if (!gotLock) {
       e.preventDefault();
       await killTree(serverChild);
       serverChild = null;
+      releaseHostLock();
       app.exit(0);
+    } else {
+      releaseHostLock();
     }
   });
 
