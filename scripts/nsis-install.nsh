@@ -22,14 +22,17 @@
   ${EndIf}
 !macroend
 
-; ---- 安装完成：刷新 Shell 图标缓存（覆盖安装后资源管理器可能仍显示旧图标）----
+; ---- 安装完成：确保桌面快捷方式显示新图标 ----
 !macro customInstall
+  ; 删除并重建桌面快捷方式（$DESKTOP 即 electron-builder 创建快捷方式的位置；
+  ; 新 .lnk 文件强制资源管理器重新提取 exe 图标）
+  Delete "$DESKTOP\DSH Studio.lnk"
+  CreateShortCut "$DESKTOP\DSH Studio.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+  ; 清理图标缓存数据库（explorer 锁定时会跳过；ie4uinit 补强）
+  Delete "$LOCALAPPDATA\IconCache.db"
+  Delete "$LOCALAPPDATA\Microsoft\Windows\Explorer\iconcache_*"
   ${If} ${FileExists} "$SYSDIR\ie4uinit.exe"
-    ; Windows 10/11 内置：触发系统图标缓存重建
-    Exec '"$SYSDIR\ie4uinit.exe" -show'
-  ${Else}
-    ; 兜底：删除图标缓存数据库
-    Delete "$LOCALAPPDATA\IconCache.db"
+    ExecWait '"$SYSDIR\ie4uinit.exe" -show'
   ${EndIf}
 !macroend
 
