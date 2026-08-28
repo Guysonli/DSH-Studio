@@ -22,6 +22,17 @@
   ${EndIf}
 !macroend
 
+; ---- 安装完成：刷新 Shell 图标缓存（覆盖安装后资源管理器可能仍显示旧图标）----
+!macro customInstall
+  ${If} ${FileExists} "$SYSDIR\ie4uinit.exe"
+    ; Windows 10/11 内置：触发系统图标缓存重建
+    Exec '"$SYSDIR\ie4uinit.exe" -show'
+  ${Else}
+    ; 兜底：删除图标缓存数据库
+    Delete "$LOCALAPPDATA\IconCache.db"
+  ${EndIf}
+!macroend
+
 ; ---- 卸载时清理 ----
 !macro customUnInstall
   ; 删除开始菜单快捷方式
