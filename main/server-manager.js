@@ -17,7 +17,10 @@ function spawnDsh({ entry, port, dshHome, projectRoot, execPath }) {
     ELECTRON_RUN_AS_NODE: '1',
     DSH_HOME: dshHome,
   };
-  const child = spawn(execPath, [entry, '--profile', 'web', '--port', String(port)], {
+  // 桌面壳内嵌 GUI，禁止 dsh 额外打开系统浏览器；
+  // dsh 的 HMR 服务要求 node 以 --expose-internals 启动（flag 必须在 entry 之前）
+  const args = ['--expose-internals', entry, '--profile', 'web', '--port', String(port), '--no-open'];
+  const child = spawn(execPath, args, {
     env,
     stdio: ['ignore', out, out],
     windowsHide: true,

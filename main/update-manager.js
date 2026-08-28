@@ -118,10 +118,27 @@ function installVendorDeps(vendorDir, npmCliPath, execPath) {
   });
 }
 
+/**
+ * 移除 vendor 的 node_modules（真实目录或旧版 junction 链接均支持）。
+ * junction/符号链接只删除链接本身，绝不触碰其目标内容。
+ */
+function removeNodeModulesDir(vendorDir) {
+  const nm = path.join(vendorDir, 'node_modules');
+  try {
+    const st = fs.lstatSync(nm);
+    if (st.isSymbolicLink()) fs.unlinkSync(nm);
+    else fs.rmSync(nm, { recursive: true, force: true });
+  } catch {
+    // 不存在即忽略
+  }
+}
+
 async function performUpdate(version, { vendorDir, npmCliPath, execPath }) {
   const tgz = path.join(path.dirname(vendorDir), `dsh-${version}.tgz`);
   await downloadTarball(version, tgz);
   await extractTarball(tgz, vendorDir);
+  // 旧版留下的 junction 式 node_modules 必须替换为真实依赖树
+  removeNodeModulesDir(vendorDir);
   await installVendorDeps(vendorDir, npmCliPath, execPath);
   return true;
 }
@@ -129,5 +146,5 @@ async function performUpdate(version, { vendorDir, npmCliPath, execPath }) {
 module.exports = {
   npmRegistryUrl, parseVersion, isNewer, getLatestVersion,
   resolveDshEntry, downloadTarball, extractTarball,
-  installVendorDeps, performUpdate,
+  installVendorDeps, removeNodeModulesDir, performUpdate,
 };

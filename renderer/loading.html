@@ -13,16 +13,6 @@
     <p class="stage" id="stage">正在初始化…</p>
     <p class="mono" id="version"></p>
   </div>
-  <script>
-    window.dshDesktop.getVersionInfo().then((v) => {
-      document.getElementById('version').textContent = 'dsh ' + v.dshVersion + ' · 应用 ' + v.appVersion;
-    });
-    window.dshDesktop.onStage(({ stage, detail }) => {
-      document.getElementById('stage').textContent = detail || stage;
-    });
-    window.dshDesktop.onFatal(({ message, detail }) => {
-      location.href = 'error.html?m=' + encodeURIComponent(message) + '&d=' + encodeURIComponent(detail || '');
-    });
-  </script>
+  <script src="loading.js"></script>
 </body>
 </html>

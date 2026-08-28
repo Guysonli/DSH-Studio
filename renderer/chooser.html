@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+  <title>选择 dsh 安装</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="chooser.css">
+</head>
+<body>
+  <div class="card">
+    <h1>选择要使用的 dsh</h1>
+    <p class="stage">Studio 自带的 dsh 当前不可用。以下为你电脑上检测到的完整安装——选择其一启动（仅本次生效，不会改动任何安装）。</p>
+    <div class="list" id="list"><p class="stage">正在扫描…</p></div>
+    <p class="hint" id="err"></p>
+    <span class="back" id="back">重新扫描</span>
+  </div>
+  <script src="chooser.js"></script>
+</body>
+</html>

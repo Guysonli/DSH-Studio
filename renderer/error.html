@@ -13,11 +13,6 @@
     <p class="err" id="detail"></p>
     <button id="retry">重试</button>
   </div>
-  <script>
-    const q = new URLSearchParams(location.search);
-    document.getElementById('msg').textContent = q.get('m') || '未知错误';
-    document.getElementById('detail').textContent = q.get('d') || '';
-    document.getElementById('retry').onclick = () => window.dshDesktop.retry();
-  </script>
+  <script src="error.js"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 node_modules/
 dist/
-vendor-src/dsh/
-vendor-src/tools/
+vendor-src/
+icons/preview/
 *.log
 
 # OS

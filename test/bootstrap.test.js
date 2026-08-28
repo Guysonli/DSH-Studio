@@ -53,29 +53,118 @@ test('readApiKey 忽略键名前后空白', async () => {
   assert.strictEqual(await readApiKey(home), 'sk-xyz');
 });
 
-test('ensureDshInstalled 在 dsh 已安装时跳过', async () => {
+// ---- dsh 原生 v1 布局：与官方 CLI / Web Models 页写出的文件互认 ----
+
+test('readApiKey 解析 dsh 原生 flow 风格 (单行 refs)', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(
+    path.join(home, '.credentials.yaml'),
+    '{ version: 1, refs: { DEEPSEEK_API_KEY: sk-test-00000000000000000000000000 } }\n'
+  );
+  assert.strictEqual(await readApiKey(home), 'sk-test-00000000000000000000000000');
+});
+
+test('readApiKey 解析 dsh 原生 block 风格 (refs 节)', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(
+    path.join(home, '.credentials.yaml'),
+    'version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-abc\n  ANTHROPIC_AUTH_TOKEN: token-xyz\n'
+  );
+  assert.strictEqual(await readApiKey(home), 'sk-abc');
+});
+
+test('readApiKey 优先环境变量（与 dsh 优先级一致）', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(path.join(home, '.credentials.yaml'), 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-file\n');
+  process.env.DEEPSEEK_API_KEY = 'sk-env';
+  try {
+    assert.strictEqual(await readApiKey(home), 'sk-env');
+  } finally {
+    delete process.env.DEEPSEEK_API_KEY;
+  }
+});
+
+test('writeApiKey 写出 dsh 原生 v1 布局', async () => {
+  const home = tmpHome();
+  await writeApiKey(home, 'sk-abc123');
+  const text = fs.readFileSync(path.join(home, '.credentials.yaml'), 'utf8');
+  assert.match(text, /version:\s*1/);
+  assert.match(text, /DEEPSEEK_API_KEY\s*:\s*sk-abc123/);
+});
+
+test('writeApiKey 保留文档中其他凭据引用', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(
+    path.join(home, '.credentials.yaml'),
+    'version: 1\nrefs:\n  ANTHROPIC_AUTH_TOKEN: token-xyz\n'
+  );
+  await writeApiKey(home, 'sk-new');
+  const text = fs.readFileSync(path.join(home, '.credentials.yaml'), 'utf8');
+  assert.match(text, /ANTHROPIC_AUTH_TOKEN\s*:\s*token-xyz/);
+  assert.match(text, /DEEPSEEK_API_KEY\s*:\s*sk-new/);
+});
+
+test('writeApiKey 在 flow 风格文档中更新而不破坏其他条目', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(
+    path.join(home, '.credentials.yaml'),
+    '{ version: 1, refs: { ANTHROPIC_AUTH_TOKEN: token-xyz, DEEPSEEK_API_KEY: sk-old } }\n'
+  );
+  await writeApiKey(home, 'sk-new');
+  const text = fs.readFileSync(path.join(home, '.credentials.yaml'), 'utf8');
+  assert.match(text, /ANTHROPIC_AUTH_TOKEN\s*:\s*token-xyz/);
+  assert.match(text, /DEEPSEEK_API_KEY\s*:\s*sk-new/);
+  // 重建为规范布局后仍可回读
+  assert.strictEqual(await readApiKey(home), 'sk-new');
+});
+
+test('writeApiKey 以空存储 {} 为起点写入', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(path.join(home, '.credentials.yaml'), '{}\n');
+  await writeApiKey(home, 'sk-empty');
+  assert.strictEqual(await readApiKey(home), 'sk-empty');
+});
+
+test('writeApiKey 无法识别的内容拒绝改动（fail-loud，不破坏文件）', async () => {
+  const home = tmpHome();
+  fs.mkdirSync(home, { recursive: true });
+  const weird = 'wholly `unexpected: [content\n';
+  fs.writeFileSync(path.join(home, '.credentials.yaml'), weird);
+  await assert.rejects(() => writeApiKey(home, 'sk-fix'));
+  // 原文件未被破坏
+  assert.strictEqual(fs.readFileSync(path.join(home, '.credentials.yaml'), 'utf8'), weird);
+});
+
+test('ensureDshInstalled 在 dsh 完整安装时跳过', async () => {
   const { ensureDshInstalled } = require('../main/bootstrap');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-ensure-'));
   const vendorDir = path.join(tmp, 'vendor', 'dsh');
   fs.mkdirSync(path.join(vendorDir, 'lib'), { recursive: true });
-  fs.mkdirSync(path.join(vendorDir, 'node_modules'), { recursive: true });
   fs.writeFileSync(path.join(vendorDir, 'lib', 'bin.js'), '');
+  // 核心依赖齐备 → 视为完整安装
+  for (const dep of ['dsh-app-boot', 'dsh-base', 'dsh-web-app']) {
+    const d = path.join(vendorDir, 'node_modules', '@deepseek-ai', dep);
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ name: `@deepseek-ai/${dep}` }));
+  }
   await ensureDshInstalled(tmp);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
-test('ensureDshInstalled 有 bin.js 无 node_modules 时链接 profiles', async () => {
+test('ensureDshInstalled 不完整 vendor 不再创建 junction，且无 npm-cli 时优雅失败', async () => {
   const { ensureDshInstalled } = require('../main/bootstrap');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-link-'));
   const vendorDir = path.join(tmp, 'vendor', 'dsh');
   fs.mkdirSync(path.join(vendorDir, 'lib'), { recursive: true });
   fs.writeFileSync(path.join(vendorDir, 'lib', 'bin.js'), '');
-  // 创建 profiles/node_modules 供链接
-  const profilesModules = path.join(tmp, 'profiles', 'node_modules');
-  fs.mkdirSync(profilesModules, { recursive: true });
-  fs.writeFileSync(path.join(profilesModules, 'test.txt'), 'ok');
-  await ensureDshInstalled(tmp);
-  // 验证链接已创建
-  assert.ok(fs.existsSync(path.join(vendorDir, 'node_modules', 'test.txt')));
+  // 不提供 npm-cli → 不应下载、不应创建 node_modules junction
+  await ensureDshInstalled(tmp, { npmCliPath: null, execPath: process.execPath });
+  assert.ok(!fs.existsSync(path.join(vendorDir, 'node_modules')), '不应为不完整 vendor 创建 node_modules');
   fs.rmSync(tmp, { recursive: true, force: true });
 });

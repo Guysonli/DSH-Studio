@@ -1,0 +1,16 @@
+/* chooser 页：选择 dsh 安装 */
+.card { width: 560px; text-align: left; }
+.list { margin: 16px 0 4px; display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border: 1px solid #333a47; border-radius: 8px;
+  background: #15181f; cursor: pointer; transition: border-color .15s, background .15s;
+  text-align: left;
+}
+.choice:hover { border-color: #3b82f6; background: #1a1e27; }
+.choice .name { font-size: 14px; color: #e6e6e6; }
+.choice .meta { font-size: 12px; color: #9aa3b2; margin-top: 3px; word-break: break-all; }
+.choice .ver { flex-shrink: 0; font-size: 12px; color: #9aa3b2; border: 1px solid #2a2e38; border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+.hint { font-size: 12px; color: #9aa3b2; margin-top: 14px; }
+.back { display: inline-block; margin-top: 8px; background: #2a2e38; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.back:hover { background: #333a47; }

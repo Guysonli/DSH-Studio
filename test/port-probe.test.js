@@ -58,6 +58,14 @@ test('decidePort: 已有服务进入 connect 模式', async () => {
   });
 });
 
+test('decidePort: allowConnect=false 时已有服务也让出（换空闲端口）', async () => {
+  await withServer((req, res) => { res.writeHead(200); res.end('ok'); }, async (port) => {
+    const d = await decidePort(port, { allowConnect: false });
+    assert.strictEqual(d.mode, 'start');
+    assert.notStrictEqual(d.port, port);
+  });
+});
+
 test('decidePort: 被占但不可达 → 重试后换空闲端口', async () => {
   // 占住一个端口但不响应 HTTP（纯 TCP 监听）
   const blocker = net.createServer();

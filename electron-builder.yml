@@ -5,18 +5,21 @@ directories:
 files:
   - main/**
   - renderer/**
+  - icons/tray.png
   - package.json
-extraResources:
-  - from: vendor-src/dsh
-    to: dsh
-  - from: vendor-src/tools
-    to: tools
+# 完整 dsh 基线（含 node_modules）由 scripts/after-pack.js 在打包后复制进 resources/
+# （electron-builder 的 extraResources 会无条件排除 node_modules，不可用）
+afterPack: scripts/after-pack.js
 win:
   target:
     - nsis
+  icon: icons/icon.ico
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   shortcutName: DSH Studio
   deleteAppDataOnUninstall: true
   include: scripts/nsis-install.nsh
+  installerIcon: icons/icon.ico
+  uninstallerIcon: icons/icon.ico
+  installerHeaderIcon: icons/icon.ico

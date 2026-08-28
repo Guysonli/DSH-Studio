@@ -43,14 +43,20 @@ function findFreePort(startPort) {
   });
 }
 
-async function decidePort(startPort) {
-  if (await probePort(startPort, 2000)) return { mode: 'connect', port: startPort };
-  // 端口被占（TCP 可达但 HTTP 无响应）→ 重试 5 秒
+/**
+ * 决策启动端口。
+ * @param {number} startPort - 首选端口（通常 3080）
+ * @param {{allowConnect?: boolean}} [options] - allowConnect=true 时（默认）
+ *   已有可响应 HTTP 的服务 → 直接连接；false 时（新启独立实例）被占即换空闲端口。
+ */
+async function decidePort(startPort, { allowConnect = true } = {}) {
+  if (allowConnect && await probePort(startPort, 2000)) return { mode: 'connect', port: startPort };
+  // 端口被占（TCP 可达但 HTTP 无响应）→ 重试 5 秒（连接模式下期待服务恢复）
   if (await tcpReachable(startPort)) {
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 500));
-      if (await probePort(startPort, 1000)) return { mode: 'connect', port: startPort };
+      if (allowConnect && await probePort(startPort, 1000)) return { mode: 'connect', port: startPort };
     }
     const free = await findFreePort(startPort + 1);
     return { mode: 'start', port: free };
